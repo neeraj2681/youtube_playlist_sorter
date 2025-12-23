@@ -2,12 +2,11 @@ import streamlit as st
 import os
 import pandas as pd
 import isodate
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 
 # --- Configuration ---
 SCOPES = ['https://www.googleapis.com/auth/youtube.readonly']
-CLIENT_SECRETS_FILE = "client_secret.json"
 
 st.set_page_config(
     page_title="Watch Later Sorter",
@@ -17,7 +16,6 @@ st.set_page_config(
 )
 
 # --- Styling ---
-# Inject some custom CSS to make it look "premium" as requested
 st.markdown("""
 <style>
     .stApp {
@@ -77,25 +75,61 @@ st.markdown("""
 
 # --- Functions ---
 
-def get_authenticated_service():
-    """Authenticates the user using the local client_secret.json."""
-    if 'credentials' not in st.session_state:
-        if not os.path.exists(CLIENT_SECRETS_FILE):
-            st.error(f"File `{CLIENT_SECRETS_FILE}` not found. Please download your client secrets from Google Cloud Console and place them in this directory.")
-            return None
+def get_auth_flow():
+    """Constructs the OAuth flow from st.secrets."""
+    if "client_oauth" not in st.secrets:
+        st.error("Missing `client_oauth` in `st.secrets`. Please configure your secrets.toml.")
+        st.stop()
+    
+    # Construct config dictionary from secrets
+    client_config = {
+        "web": {
+            "client_id": st.secrets["client_oauth"]["client_id"],
+            "client_secret": st.secrets["client_oauth"]["client_secret"],
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": [st.secrets["client_oauth"]["redirect_uri"]],
+        }
+    }
+    
+    return Flow.from_client_config(
+        client_config=client_config,
+        scopes=SCOPES,
+        redirect_uri=st.secrets["client_oauth"]["redirect_uri"]
+    )
 
-        flow = InstalledAppFlow.from_client_secrets_file(
-            CLIENT_SECRETS_FILE, SCOPES)
-        # In a real deployed web app, you'd use authorization_url and redirect_uri.
-        # Since this is likely running locally or assuming local interaction:
+def get_authenticated_service():
+    """
+    Authenticates the user using OAuth2 Web Flow.
+    1. Checks for 'code' in URL (return from Google).
+    2. If code, exchanges for credentials.
+    3. If no code/creds, returns None (UI should show Login button).
+    """
+    
+    # 1. Check for existing credentials in session
+    if 'credentials' in st.session_state:
+        return build('youtube', 'v3', credentials=st.session_state['credentials'])
+
+    # 2. Check for Auth Code in URL (Redirect back from Google)
+    query_params = st.query_params
+    if "code" in query_params:
+        code = query_params["code"]
         try:
-            credentials = flow.run_local_server(port=0)
+            flow = get_auth_flow()
+            flow.fetch_token(code=code)
+            credentials = flow.credentials
             st.session_state['credentials'] = credentials
+            
+            # Clear the code from URL to prevent re-submission on refresh
+            # Note: st.query_params are mutable in newer Streamlit versions, 
+            # but currently st.query_params.clear() or rerunning works.
+            # We'll just continue; the app will re-render with 'credentials' found.
+            return build('youtube', 'v3', credentials=credentials)
         except Exception as e:
             st.error(f"Authentication failed: {e}")
             return None
 
-    return build('youtube', 'v3', credentials=st.session_state['credentials'])
+    return None
 
 def parse_iso_duration(duration_str):
     try:
@@ -196,11 +230,35 @@ def fetch_videos(youtube, playlist_id):
 st.markdown('<div class="main-header">Watch Later Sorter 🎬</div>', unsafe_allow_html=True)
 
 if 'credentials' not in st.session_state:
+    # Try to complete auth if query params are present
+    service = get_authenticated_service()
+    if service:
+        # If successful (e.g. from code), rerun to clear URL
+        st.query_params.clear()
+        st.rerun()
+
+    # If still not authenticated, show Login Button
     st.info("Please sign in to access your YouTube account.")
-    if st.button("Sign in with Google"):
-        service = get_authenticated_service()
-        if service:
-            st.rerun()
+    
+    # We can't put a button that opens a new tab/window directly in pure python logic easily without a link.
+    # So we generate the URL and show a styled link.
+    try:
+        flow = get_auth_flow()
+        auth_url, _ = flow.authorization_url(prompt='consent')
+        
+        st.markdown(f"""
+            <a href="{auth_url}" target="_self" style="
+                display: inline-block;
+                padding: 0.5em 1em;
+                color: #FFFFFF;
+                background-color: #FF4D4D;
+                border-radius: 4px;
+                text-decoration: none;
+                font-weight: bold;
+            ">Sign in with Google</a>
+        """, unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"Could not generate login link: {e}")
 else:
     # User is logged in
     col1, col2 = st.columns([3, 1])

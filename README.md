@@ -6,7 +6,7 @@ A Streamlit web application that helps you manage your YouTube "Watch Later" pla
 
 -   **Sort by Duration**: Easily find short videos to fill a quick break or long ones for a deep dive.
 -   **Clean UI**: A "premium" dark-mode interface for browsing your videos.
--   **Playlist Support**: Fetch videos from your YouTube playlists.
+-   **Playlist Support**: Fetch videos from your YouTube playlists (requires sign-in).
 -   **Watch Later Workaround**: Includes a manual workaround for YouTube's API restrictions on the "Watch Later" playlist privacy.
 
 ## Prerequisites
@@ -14,15 +14,15 @@ A Streamlit web application that helps you manage your YouTube "Watch Later" pla
 -   Python 3.8 or higher.
 -   A Google account.
 
-## Installation
+## Installation & Local Setup
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/neeraj2681/youtube_sorter.git
-    cd youtube_sorter
+    git clone https://github.com/yourusername/youtube-sorter.git
+    cd youtube-sorter
     ```
 
-2.  **Create a virtual environment (optional but recommended):**
+2.  **Create a virtual environment:**
     ```bash
     python -m venv venv
     source venv/bin/activate  # On Windows: venv\Scripts\activate
@@ -33,50 +33,74 @@ A Streamlit web application that helps you manage your YouTube "Watch Later" pla
     pip install -r requirements.txt
     ```
 
-## 🔑 Configuration (Important!)
+4.  **Local Configuration (.streamlit/secrets.toml)**:
+    *   Create a folder named `.streamlit` in the root directory.
+    *   Create a file inside it named `secrets.toml`.
+    *   Add your Google OAuth credentials (see below section on how to get them):
+        ```toml
+        [client_oauth]
+        client_id = "YOUR_CLIENT_ID"
+        client_secret = "YOUR_CLIENT_SECRET"
+        redirect_uri = "http://localhost:8501" 
+        ```
 
-To use this app, you need to set up a project in the Google Cloud Console to get your own `client_secret.json`. This file is **private** and should not be shared or committed to GitHub.
-
-### Step-by-Step Guide to Get `client_secret.json`:
-
-1.  Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2.  **Create a New Project**: Click the project dropdown at the top and select "New Project". Give it a name (e.g., "YouTube Sorter").
-3.  **Enable YouTube Data API v3**:
-    *   In the sidebar, go to **APIs & Services** > **Library**.
-    *   Search for "YouTube Data API v3".
-    *   Click on it and click **Enable**.
-4.  **Configure OAuth Consent Screen**:
-    *   Go to **APIs & Services** > **OAuth consent screen**.
-    *   Select **External** user type and click **Create**.
-    *   Fill in the "App Information" (App name, email). You can skip the rest for personal use.
-    *   **Scopes**: Add `.../auth/youtube.readonly` if prompted, or just save and continue.
-    *   **Test Users**: **Crucial!** Add your own Google email address here. Since the app is in "Testing" mode, only added users can log in.
-5.  **Create Credentials**:
-    *   Go to **APIs & Services** > **Credentials**.
-    *   Click **Create Credentials** > **OAuth client ID**.
-    *   Application type: **Desktop app**.
-    *   Name: "YouTube Sorter Desktop".
-    *   Click **Create**.
-6.  **Download JSON**:
-    *   You will see a dialog saying "OAuth client created".
-    *   Click the **Download JSON** button (icon looks like a download arrow).
-    *   Save this file as `client_secret.json` in the root directory of this project (same folder as `main.py`).
-
-## Usage
-
-1.  Run the Streamlit app:
+5.  **Run the app:**
     ```bash
-    streamlit run main.py
+    streamlit run streamlit_app.py
     ```
 
-2.  The app will open in your browser.
-3.  Click **Sign in with Google**.
-    *   *Note*: You might see a "Google hasn't verified this app" warning. This is normal for personal projects. Click "Advanced" -> "Go to (App Name) (unsafe)" to proceed.
-4.  **Load Videos**:
-    *   **For regular playlists**: Use the "API Fetch" tab, select a playlist, and click "Fetch".
-    *   **For Watch Later**: Due to API privacy changes, you may need to use the "Paste Video IDs" tab. Follow the on-screen instructions to run a small script in your browser console on the YouTube Watch Later page to grab your video IDs.
+## ☁️ Deploying to Streamlit Cloud
+
+1.  Push your code to GitHub.
+2.  Go to [Streamlit Cloud](https://share.streamlit.io/).
+3.  Click **New app** and select your repository.
+4.  **Before clicking Deploy**, click on **Advanced Settings** -> **Secrets**.
+5.  Paste your TOML configuration into the text area:
+    ```toml
+    [client_oauth]
+    client_id = "YOUR_CLIENT_ID"
+    client_secret = "YOUR_CLIENT_SECRET"
+    redirect_uri = "https://<your-app-name>.streamlit.app"
+    ```
+    *Note*: You must update `redirect_uri` to match your actual deployed app URL.
+
+## 🔑 Getting Google OAuth Credentials
+
+To use this app, you need a Google Cloud Project with the YouTube Data API enabled.
+
+1.  Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2.  **Create a New Project**.
+3.  **Enable YouTube Data API v3**:
+    *   Library -> Search "YouTube Data API v3" -> Enable.
+4.  **Configure OAuth Consent Screen**:
+    *   **User Type**: External.
+    *   **Test Users**: Add your email address. This is required for the app to work in testing mode.
+5.  **Create Credentials**:
+    *   Credentials -> Create Credentials -> **OAuth client ID**.
+    *   **Application type**: **Web application** (NOT Desktop).
+    *   **Authorized redirect URIs**:
+        *   For Local: `http://localhost:8501`
+        *   For Cloud: `https://<your-app-name>.streamlit.app` (Add both if needed).
+    *   Click **Create**.
+6.  Copy the **Client ID** and **Client Secret** and paste them into your `secrets.toml` or Streamlit Cloud Secrets.
 
 ## Troubleshooting
 
--   **Quota Exceeded**: The free tier of YouTube Data API has a daily limit. If you load too many videos, you might hit it.
--   **Authentication Error**: Delete the `client_secret.json` (if invalid) or ensure you added your email to "Test Users" in the Google Cloud Console.
+-   **Login Loop**: If clicking "Sign in" just reloads the page without logging you in, ensure your `redirect_uri` is correct and traffic is not being blocked.
+
+## 🌍 Making it Available to Everyone
+
+By default, your Google Cloud Project is in **Testing** mode, meaning only users you manually add to the "Test Users" list can log in.
+
+To let **anyone** log in:
+1.  Go to **APIs & Services** > **OAuth consent screen**.
+2.  Click the button to **Publish App** (push to Production).
+3.  **Note**: Since your app uses the `youtube.readonly` scope, Google may require a verification process if you want to remove the "Unverified App" warning screen.
+    *   **Without Verification**: Users will see a warning ("Google hasn't verified this app"). They can click **Advanced** -> **Go to 'App Name' (unsafe)** to use it. This is usually fine for personal tools shared with friends.
+    *   **With Verification**: You submit a video demo to Google to prove you aren't doing anything malicious. This takes time.
+
+### Privacy Note
+This app works by authenticating the user in *their* browser session.
+-   User A logs in -> They see **User A's** playlists.
+-   User B logs in -> They see **User B's** playlists.
+-   You (the host) **cannot** see their data, and they cannot see yours. Streamlit isolates each user's session.
