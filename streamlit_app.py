@@ -8,6 +8,9 @@ from googleapiclient.discovery import build
 # --- Configuration ---
 SCOPES = ['https://www.googleapis.com/auth/youtube.readonly']
 
+# Allow OAuth over HTTP for local testing
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
 st.set_page_config(
     page_title="Watch Later Sorter",
     page_icon="🎬",
