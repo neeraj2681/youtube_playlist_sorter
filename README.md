@@ -18,8 +18,8 @@ A Streamlit web application that helps you manage your YouTube "Watch Later" pla
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/yourusername/youtube-sorter.git
-    cd youtube-sorter
+    git clone https://github.com/neeraj2681/youtube_sorter.git
+    cd youtube_sorter
     ```
 
 2.  **Create a virtual environment (optional but recommended):**
