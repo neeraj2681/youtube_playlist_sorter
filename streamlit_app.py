@@ -243,6 +243,14 @@ if 'credentials' not in st.session_state:
     # If still not authenticated, show Login Button
     st.info("Please sign in to access your YouTube account.")
     
+    # --- DEBUG SECTION (Temporary) ---
+    with st.expander("Debug Config (Check this!)"):
+        st.write(f"**Redirect URI:** `{st.secrets['client_oauth']['redirect_uri']}`")
+        cid = st.secrets['client_oauth']['client_id']
+        st.write(f"**Client ID:** `{cid[:10]}...`")
+        st.write("Please check that this Redirect URI matches your Google Cloud Console EXACTLY (https vs http, trailing slashes, etc).")
+    # ---------------------------------
+
     # We can't put a button that opens a new tab/window directly in pure python logic easily without a link.
     # So we generate the URL and show a styled link.
     try:
